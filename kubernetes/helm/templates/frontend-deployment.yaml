@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: {{ include "your-chart.fullname" . }}-frontend
+    labels:
+        app: {{ include "your-chart.name" . }}
+        chart: {{ include "your-chart.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+spec:
+    replicas: {{ .Values.frontend.replicaCount }} # Number of frontend replicas
+    selector:
+        matchLabels:
+            app: {{ include "your-chart.name" . }}
+            component: frontend
+            release: {{ .Release.Name }}
+    template:
+        metadata:
+            labels:
+                app: {{ include "your-chart.name" . }}
+                component: frontend
+                release: {{ .Release.Name }}
+        spec:
+            # Node selector for scheduling pods on specific nodes
+            {{- with .Values.frontend.nodeSelector }}
+            nodeSelector:
+              {{- toYaml . | nindent 8 }}
+            {{- end }}
+            # Affinity rules for pod placement
+            {{- with .Values.frontend.affinity }}
+            affinity:
+              {{- toYaml . | nindent 8 }}
+            {{- end }}
+            # Tolerations for taints on nodes
+            {{- with .Values.frontend.tolerations }}
+            tolerations:
+              {{- toYaml . | nindent 8 }}
+            {{- end }}
+            containers:
+                - name: frontend
+                  image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}" # Frontend container image
+                  imagePullPolicy: {{ .Values.frontend.image.pullPolicy }} # Image pull policy
+                  ports:
+                      - containerPort: {{ .Values.frontend.service.port }} # Exposed container port
+                  env:
+                      # Environment variables for the container
+                      {{- with .Values.frontend.env }}
+                      {{- toYaml . | nindent 18 }}
+                      {{- end }}
+                  resources:
+                      # Resource requests and limits
+                      {{- toYaml .Values.frontend.resources | nindent 18 }}

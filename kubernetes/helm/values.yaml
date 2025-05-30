@@ -1,0 +1,74 @@
+# values.yaml for frontend app
+
+replicaCount: 2
+
+image:
+  repository: myregistry.azurecr.io/frontend-app
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  targetPort: 80
+  port: 80
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: frontend.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 250m
+    memory: 128Mi
+
+env:
+  - name: NODE_ENV
+    value: development
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {
+  "kubernetes.io/os": linux
+}
+
+tolerations: [
+  {
+    key: "example-key",
+    operator: "Equal",
+    value: "example-value",
+    effect: "NoSchedule"
+  }
+]
+
+affinity: {
+  podAntiAffinity: {
+    requiredDuringSchedulingIgnoredDuringExecution: [
+      {
+        labelSelector: {
+          matchExpressions: [
+            {
+              key: "app",
+              operator: "In",
+              values: ["frontend-app"]
+            }
+          ]
+        },
+        topologyKey: "kubernetes.io/hostname"
+      }
+    ]
+  }
+}

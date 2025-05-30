@@ -1,0 +1,28 @@
+apiVersion: v2
+name: my-chart  # Name of the Helm chart
+description: A Helm chart for Kubernetes applications
+type: application  # Type of the chart
+version: 1.0.0  # Version of the chart
+appVersion: "1.0"  # Version of the application this chart deploys
+icon: https://example.com/icon.png  # URL to an icon for the chart
+dependencies:  # List of chart dependencies
+  - name: redis
+    version: 14.0.0
+    repository: https://charts.bitnami.com/bitnami
+maintainers:  # List of maintainers for the chart
+  - name: vinzydev # Name of the maintainer
+  - email: vinydev@gmail.com
+sources:  # List of source code repositories for the chart
+  - https://github.com/vinzydev/Devops-configs  # URL to the source code repository
+keywords:  # Keywords to help search for the chart
+  - kubernetes
+  - helm
+  - chart
+  - devops
+  - vinzydev  
+annotations:  # Annotations for the chart 
+  "helm.sh/chart": "my-chart-1.0.0"  # Chart version annotation
+  "helm.sh/created-by": "vinzydev"  # Created by annotation
+  "helm.sh/description": "A Helm chart for deploying my application"  # Description annotation
+  "helm.sh/maintainer": "vinzydev <vinzydev@gmail.com>"  # Maintainer annotation
+home: https://github.com/vinzydev/Devops-configs  # Home URL for the chart
