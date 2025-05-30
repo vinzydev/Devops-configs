@@ -1,0 +1,32 @@
+# Use the official Node.js 20 Alpine image as the build stage
+FROM node:20-alpine as builder
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json (if present) to the working directory
+COPY package*.json ./
+
+# Install dependencies (note: 'nom' is a typo, should be 'npm')
+RUN npm install
+
+# Copy the rest of the application source code to the container
+COPY . .
+
+# Build the application for production
+RUN npm run build
+
+# Use the official Nginx Alpine image for serving the built app
+FROM nginx:alpine
+
+# Copy the built files from the builder stage to the Nginx HTML directory (note: 'ngnix' is a typo, should be 'nginx')
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expose port 80 to allow traffic to the container
+EXPOSE 80
+
+# Start Nginx in the foreground
+ENTRYPOINT ["nginx", "-g", "daemon off;"]
+
+# Alternative way to start Nginx (commented out)
+#CMD ["nginx", "-g", "daemon off;"]

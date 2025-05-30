@@ -1,0 +1,31 @@
+FROM java:17-jdk-slim as builder
+# Set the working directory inside the container
+WORKDIR /app
+# Copy the Maven POM file to the working directory
+COPY  --chown=user:group pom.xml .
+# Copy the source code to the working directory
+COPY  source/ /app/source/
+# Copy the resources to the working directory
+COPY resources/ /app/resources/
+# Copy the test resources to the working directory
+COPY test-resources/ /app/test-resources/
+# Copy the test source code to the working directory
+COPY test-source/ /app/test-source/
+# Install Maven dependencies
+RUN apt-get update && apt-get install -y Maven
+# Build the application using Maven
+RUN mvn clean package -DskipTests
+
+# Use the official OpenJDK 17 image for the final stage 
+FROM openjdk:17-jdk-slim
+# Set the working directory inside the container
+WORKDIR /app
+# Copy the built JAR file from the builder stage to the final image
+COPY --from=builder /app/target/*.jar app.jar
+# Expose port 8080 to allow traffic to the container
+EXPOSE 8080
+# Start the application using the JAR file
+ENTRYPOINT ["java", "-jar", "app.jar"]
+# Alternative way to start the application (commented out)
+# CMD ["java", "-jar", "app.jar"]
+# Note: Ensure that the 'pom.xml' and other directories exist in the context of the Docker build.
