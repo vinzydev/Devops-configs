@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dev-ingress
+  namespace: frontend
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: / # Optional: rewrite target for NGINX Ingress Controller
+  # Optional: add any other annotations you need, e.g., for SSL, custom headers, etc. 
+  labels:
+    name: dev-ingress
+    environment: development
+    app: frontend
+  rules:
+  - host: frontend.example.com # Replace with your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service # Name of the service to route traffic to
+            port:
+              number: 8080 # Port on which the service is exposed
+---
+

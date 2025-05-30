@@ -1,0 +1,57 @@
+api: application/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      Labels: 
+        app: frontend
+    spec:
+      contianers:
+      - name: frontend
+        image: frontend:latest
+        ports:
+        -containerPort: 80
+        env:
+        - name: ENVIRONMENT
+          value: development
+        - name: API_URL
+          value: http://api-service:8080
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "500m"
+            limits:
+              memory: "256Mi"
+              cpu: "128Mi"
+      imagePullSecrets:
+      - name: acrsecrets
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: "node-role.kubernetes.io/master"
+        effect: "NoSchedule"
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - frontend
+              topologyKey: "kubernetes.io/hostname"
+      volumes:
+      - name: frontend-storage
+        persistentVolumeClaim:
+          claimName: frontend-pvc
+      volumeMounts:
+      - name: frontend-storage
+        mountPath: /usr/share/nginx/html
+        subPath: frontend

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: database-statefulset
+spec:
+  selector:
+    matchLabels:
+      app: database
+  serviceName: database-service
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      containers:
+      - name: database
+        image: registry.k8s.io/nginx-slim:0.8
+        ports:
+        - containerPort: 80
+          name: web
+  volumeMounts:
+  - name: azurefile
+    mountPath: /usr/share/nginx/html
+  volumes:
+  - name: azurefile
+    persistentVolumeClaim:
+      claimName: azurefile-pvc
+  volumeClaimTemplates:
+  - metadata:
+      name: azurefile-pvc
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: azurefile
+      volumeMode: Filesystem
