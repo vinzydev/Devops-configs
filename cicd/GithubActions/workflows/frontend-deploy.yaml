@@ -1,0 +1,146 @@
+name: Deploy frontend to AKS using Helm
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment to deploy (prod or non-prod)'
+        required: true
+        default: 'non-prod'
+  schedule:
+    - cron: '0 0 * * *' # Every day at midnight
+
+env:
+  AZURE_RESOURCE_GROUP: 'your-resource-group-name'
+  AZURE_AKS_CLUSTER: 'your-aks-cluster-name'
+  AZURE_CONTAINER_REGISTRY: 'your-container-registry-name'
+  HELM_RELEASE_NAME: 'your-helm-release-name'
+  HELM_CHART_PATH: './path/to/your/chart'
+  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'non-prod') }}
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Set up Node.js (adjust version as needed)
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      # Install dependencies and build frontend
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      # SonarQube analysis
+      - name: SonarQube Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          projectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+
+      # SonarQube Quality Gate check (fail if quality gate fails)
+      - name: SonarQube Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        with:
+          scanMetadataReportFile: .scannerwork/report-task.txt
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+
+      # Docker build
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.HELM_RELEASE_NAME }}:${{ github.sha }} .
+
+      # Azure CLI setup
+      - name: Setup Azure CLI
+        uses: azure/setup-azure@v1
+        with:
+          azure-cli-version: '2.30.0'
+
+      # Azure login
+      - name: Login to Azure
+        run: az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+
+      # ACR login
+      - name: Azure Container Registry Login
+        run: az acr login --name ${{ env.AZURE_CONTAINER_REGISTRY }}
+
+      # Push Docker image to ACR
+      - name: Push Docker image to ACR
+        run: |
+          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.HELM_RELEASE_NAME }}:${{ github.sha }}
+
+      # Get AKS credentials
+      - name: Get AKS credentials
+        run: az aks get-credentials --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name ${{ env.AZURE_AKS_CLUSTER }}
+
+      # Setup Helm
+      - name: Setup Helm
+        uses: azure/setup-helm@v1
+        with:
+          helm-version: '3.7.0'
+
+      # Deploy to AKS using Helm
+      - name: Deploy to AKS using Helm
+        run: |
+          helm upgrade --install ${{ env.HELM_RELEASE_NAME }} ${{ env.HELM_CHART_PATH }} \
+            --set image.repository=${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.HELM_RELEASE_NAME }} \
+            --set image.tag=${{ github.sha }} \
+            --namespace ${{ github.event.inputs.environment == 'prod' && 'prod' || 'default' }} \
+            --wait
+
+      # Post-deployment cleanup (optional)
+      - name: Post-deployment cleanup
+        if: always()
+        run: |
+          # Clean up old images if necessary
+          az acr repository delete --name ${{ env.AZURE_CONTAINER_REGISTRY }} --image ${{ env.HELM_RELEASE_NAME }}:old-tag --yes || true
+
+      # Notify deployment success
+      - name: Notify deployment success
+        if: success()
+        run: echo "Deployment to AKS using Helm was successful!"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Notify deployment failure and stop workflow
+      - name: Notify deployment failure
+        if: failure()
+        run: echo "Deployment to AKS using Helm failed!"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload Helm chart as artifact
+      - name: Upload Helm chart
+        uses: actions/upload-artifact@v2
+        with:
+          name: helm-chart
+          path: ${{ env.HELM_CHART_PATH }}
+
+# Comments:
+# - The workflow stops on any failure by default (unless 'continue-on-error' is set).
+# - SonarQube step runs before Docker build and deployment.
+# - Deployment environment (prod/non-prod) can be selected via workflow_dispatch or branch.
+# - Notifications are sent on both success and failure.
+# - All secrets (Azure, SonarQube) must be set in GitHub repository secrets.
